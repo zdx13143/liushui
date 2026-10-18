@@ -561,8 +561,18 @@ function viewImport(){
   h+='<div class="drop" id="drop" onclick="document.getElementById(\'f\').click()">'
     +'<div style="font-size:15px;font-weight:600;margin-bottom:5px">选择账单文件</div>'
     +'<div class="hint">支持微信 / 支付宝官方导出的 .csv .xlsx<br>也支持加密的 .zip，会提示你输解压密码</div>'
-    +'<input type="file" id="f" class="fileinput" multiple accept=".csv,.xlsx,.xls,.zip" onclick="event.stopPropagation()" onchange="onFiles(this.files)">'
-    +'</div>';
+    +'<input type="file" id="f" class="fileinput" multiple '
+    +'accept="text/csv,.csv,application/vnd.ms-excel,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,application/zip,application/x-zip-compressed,multipart/x-zip,.zip" '
+    +'onclick="event.stopPropagation()" onchange="onFiles(this.files)">'
+    +'</div>'
+    +'<details style="margin-top:10px"><summary>iPhone 上找不到文件？</summary>'
+    +'<ol class="steps">'
+    +'<li>打开 iPhone 自带的<b>文件</b> App → 底部<b>浏览</b> → <b>下载</b>，账单通常在这儿</li>'
+    +'<li>回到本工具点上传，在弹出的选择界面顶部点<b>浏览</b>，可以切换到「下载」或「我的 iPhone」</li>'
+    +'<li>账单是 <b>.zip</b> 的话，<b>别在文件 App 里点开它</b> —— iOS 解不开带密码的压缩包，直接在这里上传即可</li>'
+    +'<li>要是你之前点开过 zip 且解压成功了，那就选解压出来的 <b>.csv</b> 或 <b>.xlsx</b></li>'
+    +'<li>仍选不到就换个思路：在本工具里点上传后选<b>照片图库</b>之外的位置，或用 Safari 打开本工具（微信内置浏览器传文件有限制）</li>'
+    +'</ol></details>';
 
   h+='<div class="card" style="margin-top:12px"><h2>怎么导出账单</h2>'
     +'<div style="font-size:13.5px;font-weight:600;margin-bottom:2px">微信</div>'
@@ -585,7 +595,7 @@ function onFiles(files){
   staging={rows:[],files:0,bad:[]};
   var jobs=arr.map(function(f){ return handleOne(f); });
   Promise.all(jobs).then(function(){
-    if(!staging.rows.length){ toast(staging.bad[0]||"没能解析出账单记录"); return; }
+    if(!staging.rows.length){ toast(staging.bad.slice(0,2).join("；")||"没能解析出账单记录"); return; }
     finishImport();
   });
 }
@@ -593,8 +603,12 @@ function onFiles(files){
 function readU8(f){ return f.arrayBuffer().then(function(b){ return new Uint8Array(b); }); }
 
 function handleOne(f){
+  var name=(f.name||"").toLowerCase();
+  if(!/\.(csv|xlsx|xls|zip)$/.test(name)){
+    staging.bad.push((f.name||"该文件")+" 不是账单格式，请选 .csv / .xlsx / .zip");
+    return Promise.resolve();
+  }
   return readU8(f).then(function(u8){
-    var name=(f.name||"").toLowerCase();
     if(name.indexOf(".zip")>=0) return handleZip(u8,f.name);
     return handleBill(u8,f.name);
   }).catch(function(e){ staging.bad.push((f.name||"文件")+" 读取失败"); });
@@ -667,8 +681,9 @@ function finishImport(){
   });
   S.recs.sort(function(a,b){ return b.ts-a.ts; });
   save();
+  var bad=staging.bad.length;
   staging=null;
-  toast("导入 "+add+" 笔"+(dup?"，跳过重复 "+dup+" 笔":""));
+  toast("导入 "+add+" 笔"+(dup?"，跳过重复 "+dup+" 笔":"")+(bad?"；"+bad+" 个文件没读出来":""));
   go("list");
 }
 
