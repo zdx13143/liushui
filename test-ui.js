@@ -87,6 +87,9 @@ ok('出现「选择账单文件」上传区', app.includes('选择账单文件')
 ok('出现 zip 解压说明', app.includes('解压密码'));
 ok('出现微信导出教程', app.includes('下载账单'));
 ok('出现支付宝导出教程', app.includes('开具交易流水证明'));
+ok('accept 同时写了 MIME 类型', app.includes('text/csv') && app.includes('application/zip') && app.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
+ok('accept 同时写了扩展名', app.includes('.xlsx') && app.includes('.zip') && app.includes('.csv'));
+ok('有 iOS 找文件帮助区', app.includes('iPhone 上找不到文件'));
 ok('包含 file input', app.includes('type="file"'));
 ok('file input 阻止事件冒泡', app.includes('event.stopPropagation()'));
 const tabs = nodes['tabs'] ? nodes['tabs'].innerHTML : '';
@@ -118,6 +121,14 @@ try {
   ctx.go('stats');
   ok('统计页渲染成功', nodes['app'].innerHTML.includes('概览'));
 } catch (e) { ok('导入流程', false, e.message); }
+
+console.log('\n文件类型过滤：');
+ctx.staging = { rows: [], files: 0, bad: [] };
+ctx.handleOne({ name: 'photo.jpg', arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) });
+ok('拒绝 jpg 等非账单文件', ctx.staging.bad.length === 1 && ctx.staging.rows.length === 0, JSON.stringify(ctx.staging.bad));
+ctx.staging = { rows: [], files: 0, bad: [] };
+ctx.handleOne({ name: '账单.csv', arrayBuffer: () => Promise.resolve(new TextEncoder().encode('交易时间,x\n').buffer) });
+ok('放行 csv', ctx.staging.bad.length === 0, JSON.stringify(ctx.staging.bad));
 
 console.log('\n通过 ' + pass + ' / 失败 ' + fail);
 process.exit(fail ? 1 : 0);
